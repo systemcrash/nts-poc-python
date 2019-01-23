@@ -1,0 +1,7 @@
+*~
+*.pyc
+*.pyo
+lextab.py
+yacctab.py
+client.ini
+master_keys

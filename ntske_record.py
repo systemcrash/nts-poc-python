@@ -6,6 +6,8 @@ RT_ERROR = 2
 RT_WARNING = 3
 RT_AEAD_NEG = 4
 RT_NEW_COOKIE = 5
+RT_NTPV4_SERVER = 6
+RT_NTPV4_PORT = 7
 
 ERR_UNREC_CRIT = 0
 ERR_BAD_REQUEST = 1
@@ -28,7 +30,7 @@ class Record:
 
     def __len__(self):
         return len(self.body)+4
-        
+
     def __bytes__(self):
         crit_type = self.rec_type
         if self.critical:
@@ -36,7 +38,7 @@ class Record:
         return struct.pack(">HH", crit_type, len(self.body)) + self.body
 
     @classmethod
-    def make(cls, critical, rec_type, body):
+    def make(cls, critical, rec_type, body = b''):
         rec = Record()
         rec.critical = critical
         rec.rec_type = rec_type

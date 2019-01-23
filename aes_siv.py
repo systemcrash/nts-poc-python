@@ -35,7 +35,7 @@ _ffi.cdef('''
                       unsigned char const* ad, size_t ad_len);
 ''')
 
-_libaes_siv = _ffi.dlopen("libaes_siv.so")
+_libaes_siv = _ffi.dlopen("./libaes_siv/libaes_siv.so")
 
 class AES_SIV:
     def __init__(self, other=None):
