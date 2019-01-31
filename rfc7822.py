@@ -37,7 +37,7 @@ class NtpExtension:
             raise ValueError("Extension field length too short")
         if length % 4 != 0:
             raise ValueError("Extension field length must be a multiple of 4")
-        self.body = pkt[4:length-4]
+        self.body = pkt[4:length]
 
     def __bytes__(self):
         return struct.pack(">HH", self.typeid, len(self.body) + 4) + self.body
@@ -101,4 +101,4 @@ class NtpPacket:
                            self.rootdelay, self.rootdisp,
                            self.refid, self.reftime,
                            self.org, self.rec, self.xmt) + \
-            b''.join(self.extensions)
+            b''.join([ _.__bytes__() for _ in self.extensions])
