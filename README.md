@@ -39,6 +39,10 @@ I've tested this implementation on Ubuntu 18.04.  The scripts require
 Python 3.6, even though they are written to be compatible with Python
 2.7.  I haven't figured out why Python 2.7 doesn't work yet.
 
+Warning: don't remove the assert sys.version_info[0] == 3 from the
+files.  It might seem like it's working, but the SSL.Connection will
+return corrupt data with some NTS servers.
+
 Change directory to the top of the nts-poc-python tree:
 
  cd nts-poc-python

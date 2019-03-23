@@ -3,10 +3,6 @@ from __future__ import division, print_function, unicode_literals
 
 import time
 import math
-import os
-import stat
-import binascii
-import struct
 
 NTP_TS_EPOCH_OFFSET = 2208988800
 

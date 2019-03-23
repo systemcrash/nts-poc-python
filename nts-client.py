@@ -12,7 +12,7 @@ import binascii
 import aes_siv
 
 from ntp import NTPPacket, NTPExtensionField,  NTPExtensionFieldType
-from nts import NTSClientPacket, NTSCookie
+from nts import NTSClientPacketHelper, NTSCookie
 from constants import *
 
 def main():
@@ -36,7 +36,9 @@ def main():
     s2c_key = binascii.unhexlify(config.get('keys', 's2c'))
 
     cookies = [ binascii.unhexlify(v) for k, v in sorted(config.items('cookies')) ]
-    assert cookies
+
+    if not cookies:
+        raise ValueError("no cookies in client.ini")
 
     import socket
     import os
@@ -46,7 +48,7 @@ def main():
 
     cookie_len = len(cookies[0])
 
-    req = NTSClientPacket()
+    req = NTSClientPacketHelper()
     req.transmit_timestamp = struct.unpack('Q', os.urandom(8))[0]
 
     unique_identifier = os.urandom(32)
@@ -93,11 +95,13 @@ def main():
         print("Timeout")
         return
 
-    resp = NTSClientPacket.unpack(data, unpack_key = s2c_key)
+    resp = NTSClientPacketHelper.unpack(data, unpack_key = s2c_key)
     print(resp)
 
-    assert resp.origin_timestamp == req.transmit_timestamp
-    assert resp.unique_identifier == unique_identifier
+    if resp.origin_timestamp != req.transmit_timestamp:
+        raise ValueError("transmitted origin and received transmit timestamps do not match")
+    if resp.unique_identifier != unique_identifier:
+        raise ValueError("transmitted and received unique identifiers do not match")
 
     print("nts_cookies", len(resp.nts_cookies))
     print("enc_ext", len(resp.enc_ext))

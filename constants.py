@@ -90,7 +90,7 @@ KissCodes = {
 
 # Preliminary for NTS draft-15
 
-NTS_ALPN_PROTO = b'ntske/1'
+NTS_ALPN_PROTO = 'ntske/1'
 
 NTS_TLS_Key_Label = b'EXPORTER-network-time-security/1'
 NTS_TLS_Key_Label_Workaround = b'EXPORTER-nts/1'

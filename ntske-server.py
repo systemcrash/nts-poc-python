@@ -6,22 +6,16 @@ import sys
 import socket
 import binascii
 import struct
-import OpenSSL
 import traceback
-from OpenSSL import SSL
+from socketserver import ThreadingTCPServer, TCPServer, BaseRequestHandler
 
-from rfc5705 import export_keying_materials
+from sslwrapper import SSLWrapper
 from constants import *
 from ntske_record import *
 from nts import NTSCookie
 from server_helper import ServerHelper
 
-CIPHERS = [
-    'ECDHE-RSA-AES256-GCM-SHA384',
-    'ECDHE-ECDSA-AES256-GCM-SHA384',
-    'ECDHE-RSA-AES128-GCM-SHA256',
-    'ECDHE-ECDSA-AES128-GCM-SHA256',
-    ]
+assert sys.version_info[0] == 3
 
 # Protocol IDs, see the IANA Network Time Security Next Protocols registry
 SUPPORTED_PROTOCOLS = {
@@ -46,16 +40,12 @@ def pack_array(a):
     else:
         return struct.pack('>%uH' % len(a), fmt, a)
 
-class NTSKEServer(object):
-    def __init__(self):
-        self.ntpv4_server = None
-        self.ntpv4_port = None
+class NTSKEHandler(BaseRequestHandler):
+    def handle(self):
+        print("Handle", self.client_address)
 
-class NTSKESession(object):
-    def __init__(self, server, keyid, key):
-        self.server = server
-        self.keyid = keyid
-        self.key = key
+        self.keyid, self.key = self.server.helper.get_master_key()
+        s = self.server.wrapper.accept(self.request)
 
         self.npn_protocols = None
         self.aead_algorithms = None
@@ -63,6 +53,35 @@ class NTSKESession(object):
 
         self.errors = set()
         self.warnings = set()
+
+        npn_ack = False
+        aead_ack = False
+        protocols = []
+
+        while True:
+            resp = s.recv(4)
+            if resp is None:
+                print("unexpected EOF")
+                return 1
+            if (len(resp) < 4):
+                print("Premature end of server response", file = sys.stderr)
+                return 1
+            body_len = struct.unpack(">H", resp[2:4])[0]
+            if body_len > 0:
+                resp += s.recv(body_len)
+            record = Record(resp)
+            self.process_record(record)
+            if record.rec_type == RT_END_OF_MESSAGE:
+                break
+
+        c2s_key = s.export_keying_material(self.server.key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_C2S)
+        s2c_key = s.export_keying_material(self.server.key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_S2C)
+
+        response = self.get_response(c2s_key, s2c_key)
+
+        s.sendall(b''.join(map(bytes, response)))
+
+        s.shutdown()
 
     def error(self, code, message):
         print("error %u: %s" % (code, message), file = sys.stderr)
@@ -182,6 +201,7 @@ class NTSKESession(object):
             records.append(Record.make(True, RT_WARNING, struct.pack(">H", code)))
 
         if self.errors:
+            records.append(Record.make(True, RT_END_OF_MESSAGE))
             return records
 
         print("C2S: " + binascii.hexlify(c2s_key).decode('utf-8'))
@@ -214,39 +234,26 @@ class NTSKESession(object):
 
         return records
 
-def handle(server, ssl, addr, keyid, key):
-    session = NTSKESession(server, keyid, key)
+class NTSKEServer(ThreadingTCPServer):
+    allow_reuse_address = True
 
-    print('Connection from %s' % repr(addr))
+    def __init__(self, config_path):
+        self.helper = ServerHelper(config_path)
 
-    ssl.do_handshake()
+        host = '0.0.0.0'
+        port = int(self.helper.ntske_port)
 
-    if ssl.get_alpn_proto_negotiated() != NTS_ALPN_PROTO:
-        raise IOError("Failed to negotiate ntske/1")
+        super(NTSKEServer, self).__init__((host, port), NTSKEHandler)
 
-    npn_ack = False
-    aead_ack = False
-    protocols = []
+        self.ntpv4_server = self.helper.ntpv4_server
+        self.ntpv4_port = self.helper.ntpv4_port
+        self.key_label = self.helper.key_label
 
-    while True:
-        resp = ssl.recv(4)
-        if(len(resp) < 4):
-            print("Premature end of server response", file = sys.stderr)
-            return 1
-        body_len = struct.unpack(">H", resp[2:4])[0]
-        if body_len > 0:
-            resp += ssl.recv(body_len)
-        record = Record(resp)
-        session.process_record(record)
-        if record.rec_type == RT_END_OF_MESSAGE:
-            break
-
-    c2s_key = ssl.export_keying_material(server.key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_C2S)
-    s2c_key = ssl.export_keying_material(server.key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_S2C)
-
-    response = session.get_response(c2s_key, s2c_key)
-
-    ssl.sendall(b''.join(map(bytes, response)))
+        self.wrapper = SSLWrapper()
+        self.wrapper.server(self.helper.ntske_root_ca,
+                            self.helper.ntske_server_cert,
+                            self.helper.ntske_server_key)
+        self.wrapper.set_alpn_protocols([NTS_ALPN_PROTO])
 
 def main():
     config_path = 'server.ini'
@@ -258,65 +265,8 @@ def main():
     if len(sys.argv) > 1:
         config_path = sys.argv[1]
 
-    serverhelper = ServerHelper(config_path)
-
-    server = NTSKEServer()
-    server.ntpv4_server = serverhelper.ntpv4_server
-    server.ntpv4_port = serverhelper.ntpv4_port
-    server.key_label = serverhelper.key_label
-
-    def alpn_select_callback(ssl, options):
-        return NTS_ALPN_PROTO
-
-    def verify_callback(ssl, cert, errno, depth, result):
-        if result == 0:
-            return False
-        if depth == 0:
-            #FIXME: check hostname
-            pass
-        return True
-
-    ctx = SSL.Context(SSL.TLSv1_2_METHOD)
-    ctx.set_options(SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3 |
-                    SSL.OP_NO_TLSv1 | SSL.OP_NO_TLSv1_1)
-    print(list(map(str, CIPHERS)))
-    ctx.set_cipher_list(':'.join(CIPHERS).encode('ASCII'))
-    ctx.load_verify_locations(serverhelper.ntske_root_ca)
-    ctx.use_certificate_file(serverhelper.ntske_server_cert)
-    ctx.use_privatekey_file(serverhelper.ntske_server_key)
-    ctx.set_verify(SSL.VERIFY_PEER, verify_callback)
-    ctx.set_alpn_select_callback(alpn_select_callback)
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    ssl_server = SSL.Connection(ctx, sock)
-    ssl_server.bind(('', int(serverhelper.ntske_port)))
-    ssl_server.listen(3)
-
-    while True:
-        try:
-            ssl, addr = ssl_server.accept()
-        except KeyboardInterrupt:
-            break
-        except Exception:
-            traceback.print_exc()
-            continue
-
-        keyid, key = serverhelper.get_master_key()
-
-        try:
-            handle(server, ssl, addr, keyid, key)
-            ssl.shutdown()
-        except KeyboardInterrupt:
-            break
-        except Exception:
-            traceback.print_exc()
-        finally:
-            ssl.close()
-
-    print()
-    print("Shutting down")
+    server = NTSKEServer(config_path)
+    server.serve_forever()
 
 if __name__ == "__main__":
     main()

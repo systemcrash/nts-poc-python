@@ -35,7 +35,8 @@ class NTSCookie(object):
         self.aead = aes_siv.AES_SIV()
 
     def unpack(self, keys, cookie):
-        assert len(cookie) == self.COOKIE_LEN
+        if len(cookie) != self.COOKIE_LEN:
+            raise ValueError("invalid cookie length")
 
         keyid = struct.unpack_from(self.HEADER_FMT, cookie, 0)[0]
 
@@ -73,7 +74,7 @@ class NTSCookie(object):
 
         return cookie
 
-class NTSPacket(NTPPacket):
+class NTSPacketHelper(NTPPacket):
     def __init__(self, unpack_key = None, pack_key = None,  *args, **kwargs):
         NTPPacket.__init__(self, *args, **kwargs)
         self.unpack_key = unpack_key
@@ -92,25 +93,32 @@ class NTSPacket(NTPPacket):
         return self.get_aead()
 
     def handle_authenticator(self, field, buf, offset):
-        assert self.enc_ext is None
+        if self.enc_ext is not None:
+            raise ValueError("multiple authenticator fields are not allowed")
+
         self.enc_ext = []
 
         aead = self.get_aead()
 
         nonce_len, enc_len = struct.unpack_from('>HH', field.value, 0)
         i = 4
-        assert nonce_len >= 16
+
+        if nonce_len < 16:
+            raise ValueError("nonce too short")
+
         # We ought to check if the AEAD algorithm has any more
         # requirements on the length of the nonce
         nonce = field.value[i : i + nonce_len]
         i = (i + nonce_len + 3) & ~3
         ciphertext = field.value[i : i + enc_len]
         i = (i + enc_len + 3) & ~3
-        assert i <= len(field.value)
+
+        if i > len(field.value):
+            raise ValueError("authenticator size contents extends outside of field")
 
         adddata = buf[:offset]
 
-        if 0:
+        if 1:
             print("field %u %s" % (len(field.value), binascii.hexlify(field.value[:16])))
             print("key   %u %s" % (len(self.unpack_key), binascii.hexlify(self.unpack_key)))
             print("nonce %u %s" % (len(nonce), binascii.hexlify(nonce)))
@@ -118,24 +126,33 @@ class NTSPacket(NTPPacket):
             print("add   %u %s" % (len(adddata), binascii.hexlify(adddata[:10])))
 
         plaintext = aead.decrypt(self.unpack_key, nonce, ciphertext, adddata)
-        assert(plaintext is not None)
+
+        if plaintext is None:
+            raise ValueError("decryption failed")
+
         plaintext = bytes(plaintext)
 
         offset = 0
         remain = len(plaintext)
         while remain:
             field_type, field_len = NTPExtensionField.peek(plaintext, offset)
-            assert field_len >= 4
-            assert field_len % 4 == 0
+
+            if field_len < 4:
+                raise ValueEror("field is too short")
+            if field_len % 4 != 0:
+                raise ValueError("field length is not a multiple of 4")
 
             field = NTPExtensionField(field_type,
                                       plaintext[offset + 4 : offset + field_len])
 
             if field.field_type == NTPExtensionFieldType.NTS_Cookie:
-                # assert len(self.nts_cookies) < 8
+                if len(self.nts_cookies) >= 8:
+                       raise ValueEror("too many cookies")
                 self.nts_cookies.append(field.value)
 
             elif field.field_type == NTPExtensionFieldType.NTS_Cookie_Placeholder:
+                if self.nr_cookie_placeholders >= 7:
+                       raise ValueEror("too many cookie placeholders")
                 self.nr_cookie_placeholders += 1
 
             self.enc_ext.append(field)
@@ -143,13 +160,15 @@ class NTSPacket(NTPPacket):
             remain -= field_len
             offset += field_len
 
-        assert remain == 0
+        if remain:
+            raise ValueError("garbage at end of authenticator")
 
         self.unauth_ext = []
 
     def handle_field(self, field, buf, offset):
         if field.field_type == NTPExtensionFieldType.Unique_Identifier:
-            assert self.unique_identifier is None
+            if self.unique_identifier is not None:
+                raise ValueError("multiple unique identifier fields are not allowed")
             self.unique_identifier = field.value
             self.ext.append(field)
 
@@ -157,7 +176,7 @@ class NTSPacket(NTPPacket):
             self.ext.append(field)
 
     def pack(self):
-        buf = super(NTSPacket, self).pack()
+        buf = super(NTSPacketHelper, self).pack()
         if self.enc_ext is not None:
             plaintext = b''.join([ _.pack() for _ in self.enc_ext ])
             aead = self.get_aead()
@@ -174,8 +193,11 @@ class NTSPacket(NTPPacket):
             if 0:
                 print("cipher %u %s" % (len(ciphertext), binascii.hexlify(ciphertext)))
 
-            assert len(nonce) % 4 == 0
-            assert len(ciphertext) % 4 == 0
+            # TODO maybe I should allow odd sized nonces and ciphertext
+            if len(nonce) % 4 != 0:
+                raise ValueError("nonce length is not a multiple of 4")
+            if len(ciphertext) % 4 != 0:
+                raise ValueError("ciphertext length is not a multiple of 4")
 
             a = [
                 struct.pack('>HH', len(nonce), len(ciphertext)),
@@ -191,9 +213,9 @@ class NTSPacket(NTPPacket):
 
         return buf
 
-class NTSServerPacket(NTSPacket):
+class NTSServerPacketHelper(NTSPacketHelper):
     def __init__(self, keys = {}, *args, **kwargs):
-        NTSPacket.__init__(self, *args, **kwargs)
+        super(NTSServerPacketHelper, self).__init__(*args, **kwargs)
         self.nr_cookie_placeholders = 0
         self.nts_cookie = None
         self.keys = keys
@@ -203,7 +225,9 @@ class NTSServerPacket(NTSPacket):
             self.unauth_ext.append(field)
 
         elif field.field_type == NTPExtensionFieldType.NTS_Cookie:
-            assert self.nts_cookie is None
+            if self.nts_cookie is not None:
+                raise ValueError("multiple cookie fields are not allowed")
+
             self.nts_cookie = field.value
 
             if self.unpack_key:
@@ -211,7 +235,8 @@ class NTSServerPacket(NTSPacket):
 
             self.nts_keyid, self.aead_algo, self.pack_key, self.unpack_key = NTSCookie().unpack(self.keys, field.value)
 
-            assert self.aead_algo == 15
+            if self.aead_algo != 15:
+                raise ValueError("only AEAD algo 15 is supported")
 
         elif field.field_type == NTPExtensionFieldType.NTS_Cookie_Placeholder:
             self.nr_cookie_placeholders += 1
@@ -220,11 +245,11 @@ class NTSServerPacket(NTSPacket):
             self.handle_authenticator(field, buf, offset)
 
         else:
-            super(NTSServerPacket, self).handle_field(field, buf, offset)
+            super(NTSServerPacketHelper, self).handle_field(field, buf, offset)
 
-class NTSClientPacket(NTSPacket):
+class NTSClientPacketHelper(NTSPacketHelper):
     def __init__(self, *args, **kwargs):
-        NTSPacket.__init__(self, *args, **kwargs)
+        super(NTSClientPacketHelper, self).__init__(*args, **kwargs)
         self.nts_cookies = []
 
     def handle_field(self, field, buf, offset):
@@ -241,4 +266,4 @@ class NTSClientPacket(NTSPacket):
             self.handle_authenticator(field, buf, offset)
 
         else:
-            super(NTSClientPacket, self).handle_field(field, buf, offset)
+            super(NTSClientPacketHelper, self).handle_field(field, buf, offset)

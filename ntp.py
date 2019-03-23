@@ -18,8 +18,10 @@ class NTPExtensionField(object):
     @staticmethod
     def peek(buf, offset = 0):
         field_type, field_len = struct.unpack_from('>HH', buf, offset)
-        assert field_len % 4 == 0
-        assert offset + field_len <= len(buf)
+        if field_len % 4 != 0:
+            raise ValueError("field length is not a multiple of 4")
+        if offset + field_len > len(buf):
+            raise ValueError("field extends past end of buffer")
         return field_type, field_len
 
     def pack(self, last = False):
@@ -204,7 +206,8 @@ class NTPPacket(object):
 
         stratum = Stratum(stratum)
 
-        assert len(buf) % 4 == 0
+        if len(buf) % 4 != 0:
+            raise ValueError("buffer size is not a multiple of 4")
 
         remain = len(buf) - offset
 
@@ -226,8 +229,11 @@ class NTPPacket(object):
 
         while remain >= 28:
             field_type, field_len = NTPExtensionField.peek(buf, offset)
-            assert field_len >= 4
-            assert field_len % 4 == 0
+
+            if field_len < 4:
+                raise ValueEror("field is too short")
+            if field_len % 4 != 0:
+                raise ValueError("field length is not a multiple of 4")
 
             field = NTPExtensionField(field_type,
                                       buf[offset + 4 : offset + field_len])
@@ -252,9 +258,7 @@ class NTPPacket(object):
             offset += remain
             remain = 0
 
-        assert remain == 0
-
-        # Either no signature or keyid and a 128 bit or 160 bit signature
-        assert remain == 0 or remain == 20 or remain == 24
+        elif remain:
+            raise ValueError("garbage at end of NTP packet")
 
         return packet

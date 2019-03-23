@@ -8,12 +8,15 @@ import time
 import traceback
 import binascii
 import stat
+import sys
 
 from util import epoch_to_ntp_ts
 from server_helper import ServerHelper
 from constants import *
 from ntp import NTPExtensionField,  NTPExtensionFieldType
 from nts import NTSServerPacket, NTSCookie
+
+assert sys.version_info[0] == 3
 
 def handle(req, master_key):
     ts = epoch_to_ntp_ts(time.time())
@@ -35,14 +38,16 @@ def handle(req, master_key):
             req.unique_identifier))
 
     if req.enc_ext is not None:
-        assert req.unique_identifier is not None
+        if req.unique_identifier is None:
+            raise ValueError("unique identifier missing")
 
         resp.pack_key = req.pack_key
         resp.enc_ext = []
 
         keyid, key = master_key
 
-        assert req.nr_cookie_placeholders <= 7
+        if req.nr_cookie_placeholders > 7:
+            raise ValueError("too many cookie placeholders")
 
         for i in range(req.nr_cookie_placeholders + 1):
             cookie = NTSCookie().pack(
@@ -70,6 +75,8 @@ def main():
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((host, port))
+
+    sys.stdout.flush()
 
     while 1:
         try:
@@ -103,6 +110,8 @@ def main():
             traceback.print_exc()
 
         print()
+
+        sys.stdout.flush()
 
 if __name__ == '__main__':
     main()
