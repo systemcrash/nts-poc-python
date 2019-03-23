@@ -17,14 +17,33 @@ implementation which can be found here:
  https://gitlab.com/MLanger/ntp/
  https://gitlab.com/MLanger/nts/
 
+Prerequisites
+=============
+
+Ubuntu 18.04.  Ubuntu 16.04 does not work due to the openssl libraries
+being too old.  Intall the following packages:
+
+ apt-get install git gcc binutils cmake libssl-dev python3-cffi
+
+Checking out
+============
+
+Clone the repository:
+
+ git clone https://github.com/Netnod/nts-poc-python.git
+
 Testing the Python implementation
 =================================
 
 I've tested this implementation on Ubuntu 18.04.  The scripts require
 Python 3.6, even though they are written to be compatible with Python
-2.7.  I haven't figured out why that is yet.
+2.7.  I haven't figured out why Python 2.7 doesn't work yet.
 
-Check out Daniel Fox Franke's libaes_siv implementation and build it.
+Change directory to the top of the nts-poc-python tree:
+
+ cd nts-poc-python
+
+Check out Daniel Fox Franke's libaes_siv implementation and build it:
 
  git clone https://github.com/dfoxfranke/libaes_siv.git
  cd libaes_siv
