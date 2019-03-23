@@ -102,12 +102,6 @@ class NTSPacket(NTPPacket):
         nonce = field.value[i : i + nonce_len]
         # Is this correct, should we do padding here?
         i = (i + nonce_len + 3) & ~3
-        # Workaround for NTPsec strangeness, the enc_len field is 16
-        # bytes too small
-        if i + enc_len + 16 == len(field.value):
-            print("WARNING: enc_len %u is 16 bytes too small" % enc_len,
-                  file = sys.stderr)
-            enc_len += 16
         ciphertext = field.value[i : i + enc_len]
         i = (i + enc_len + 3) & ~3
         assert i <= len(field.value)
