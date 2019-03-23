@@ -307,6 +307,7 @@ def main():
         except Exception:
             traceback.print_exc()
         finally:
+            ssl.shutdown()
             ssl.close()
 
     print()
