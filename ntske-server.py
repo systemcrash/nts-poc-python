@@ -10,7 +10,6 @@ import OpenSSL
 import traceback
 from OpenSSL import SSL
 
-from aes_siv import AES_SIV
 from rfc5705 import export_keying_materials
 from constants import *
 from ntske_record import *
@@ -20,7 +19,7 @@ from server_helper import ServerHelper
 CIPHERS = [
     'ECDHE-RSA-AES256-GCM-SHA384',
     'ECDHE-ECDSA-AES256-GCM-SHA384',
-    'ECDHE-RSA-AES128-GCM-SHA256'
+    'ECDHE-RSA-AES128-GCM-SHA256',
     'ECDHE-ECDSA-AES128-GCM-SHA256',
     ]
 

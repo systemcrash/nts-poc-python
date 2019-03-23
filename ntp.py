@@ -56,7 +56,7 @@ class NTPPacket(object):
                  precision = 0x20,
                  root_delay = 0,
                  root_dispersion = 0,
-                 reference_id = '',
+                 reference_id = b'',
                  reference_timestamp = 0,
                  origin_timestamp = 0,
                  receive_timestamp = 0,

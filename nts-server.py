@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 from __future__ import absolute_import
 from __future__ import division, print_function, unicode_literals
 
@@ -21,7 +21,7 @@ def handle(req, master_key):
     resp = NTSServerPacket(
         mode = Mode.SERVER,
         stratum = 15,
-        reference_id = '\0\0\0\0',
+        reference_id = b'\0\0\0\0',
         precision = -10,
         reference_timestamp = ts,
         origin_timestamp = req.transmit_timestamp,

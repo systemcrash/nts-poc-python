@@ -20,9 +20,9 @@ implementation which can be found here:
 Testing the Python implementation
 =================================
 
-I've tested this implementation on Ubuntu 18.04.  Some of the scripts
-require Python 3.6, even though they are written to be compatible with
-Python 2.7.  I haven't figured out why that is yet.
+I've tested this implementation on Ubuntu 18.04.  The scripts require
+Python 3.6, even though they are written to be compatible with Python
+2.7.  I haven't figured out why that is yet.
 
 Check out Daniel Fox Franke's libaes_siv implementation and build it.
 
@@ -42,7 +42,7 @@ NTSKE server will create a new master key.
 
 To start the NTP/UDP server, open a terminal and run:
 
- python nts-server.py
+ python3 nts-server.py
 
 The server uses the file "server.ini" for its configuration.  The
 default is for the NTSKE server to listen on TCP port 4123.
@@ -55,7 +55,7 @@ to the file "client.ini".
 Run the NTS client to talk to the NTS server and get a timestamped
 packet back.
 
- python nts-client.py
+ python3 nts-client.py
 
 If you want to talk to a different NTS server than the one specified
 in client.ini you can specify the NTS server on the command line:
@@ -64,7 +64,7 @@ in client.ini you can specify the NTS server on the command line:
 
 If you want to rotate the master key, run server_helper.py:
 
- python server_helper.py
+ python3 server_helper.py
 
 This will create a new key in the master_keys directory which will be
 read by ntske-server.py or nts-server.py on the next request.
