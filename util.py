@@ -14,7 +14,7 @@ def ntp_short_to_seconds(ntp_short):
     return ntp_short / 2.0 ** 16
 
 def ntp_ts_to_epoch(ntp_ts):
-    return ntp_ts / 2.0**32 - 2208988800
+    return ntp_ts / 2.0**32 - NTP_TS_EPOCH_OFFSET
 
 def ntp_ts_to_iso(ntp_ts):
     t = ntp_ts_to_epoch(ntp_ts)
@@ -23,4 +23,4 @@ def ntp_ts_to_iso(ntp_ts):
     return s
 
 def epoch_to_ntp_ts(t):
-    return int((t + 2208988800) * 2.0**32)
+    return int((t + NTP_TS_EPOCH_OFFSET) * 2.0**32)
