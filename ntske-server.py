@@ -241,25 +241,29 @@ def handle(server, ssl, addr, keyid, key):
         if record.rec_type == RT_END_OF_MESSAGE:
             break
 
-    c2s_key = ssl.export_keying_material(NTS_TLS_Key_Label, NTS_TLS_Key_LEN, NTS_TLS_Key_C2S)
-    s2c_key = ssl.export_keying_material(NTS_TLS_Key_Label, NTS_TLS_Key_LEN, NTS_TLS_Key_S2C)
+    c2s_key = ssl.export_keying_material(server.key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_C2S)
+    s2c_key = ssl.export_keying_material(server.key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_S2C)
 
     response = session.get_response(c2s_key, s2c_key)
 
     ssl.sendall(b''.join(map(bytes, response)))
 
 def main():
-    serverhelper = ServerHelper()
+    config_path = 'server.ini'
+
+    if len(sys.argv) > 2:
+        print("Usage: %s [server.ini]" % sys.argv[0], file = sys.stderr)
+        sys.exit(1)
+
+    if len(sys.argv) > 1:
+        config_path = sys.argv[1]
+
+    serverhelper = ServerHelper(config_path)
 
     server = NTSKEServer()
-    if serverhelper.ntpv4_server:
-        server.ntpv4_server = serverhelper.ntpv4_server.encode('ascii')
-    else:
-        server.ntpv4_server = None
-    if serverhelper.ntpv4_port:
-        server.ntpv4_port = int(serverhelper.ntpv4_port)
-    else:
-        server.ntpv4_port = None
+    server.ntpv4_server = serverhelper.ntpv4_server
+    server.ntpv4_port = serverhelper.ntpv4_port
+    server.key_label = serverhelper.key_label
 
     def alpn_select_callback(ssl, options):
         return NTS_ALPN_PROTO

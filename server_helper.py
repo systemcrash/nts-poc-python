@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 from __future__ import absolute_import
 from __future__ import division, print_function, unicode_literals
 
@@ -10,6 +10,11 @@ try:
     import configparser
 except ImportError:
     import ConfigParser as configparser
+try:
+    from io import StringIO
+except ImportError:
+    from cStringIO import StringIO
+from constants import *
 
 """
 
@@ -35,20 +40,32 @@ the keys every time the keys are used.
 
 """
 
+CONFIG_DEFAULTS = '''
+[ntske]
+port = 443
+
+[ntpv4]
+server =
+port = 123
+
+[keys]
+key_label =
+master_keys_dir = master_keys
+'''
+
 class ServerHelper(object):
-    INI_FILE = 'server.ini'
     MAX_MASTER_KEYS = 3
 
-    def __init__(self):
+    def __init__(self, config_path = 'server.ini'):
         config = configparser.RawConfigParser(
             allow_no_value = True)
-        config.read(self.INI_FILE)
+        config.readfp(StringIO(CONFIG_DEFAULTS))
+        config.read(config_path)
 
         if 1:
             import sys
             config.write(sys.stdout)
 
-        self.master_keys_dir   = config.get('DEFAULT', 'master_keys_dir')
 
         self.ntske_port        = config.get('ntske', 'port')
         self.ntske_root_ca     = config.get('ntske', 'root_ca')
@@ -56,7 +73,22 @@ class ServerHelper(object):
         self.ntske_server_key  = config.get('ntske', 'server_key')
 
         self.ntpv4_server      = config.get('ntpv4', 'server')
+        if self.ntpv4_server:
+            self.ntpv4_server = self.ntpv4_server.encode('ASCII')
+        else:
+            self.ntpv4_server = None
         self.ntpv4_port        = config.get('ntpv4', 'port')
+        if self.ntpv4_port:
+            self.ntpv4_port = int(self.ntpv4_port)
+        else:
+            self.ntpv4_port = None
+
+        self.master_keys_dir   = config.get('keys', 'master_keys_dir')
+        self.key_label         = config.get('keys', 'key_label')
+        if self.key_label:
+            self.key_label = self.key_label.encode('ASCII')
+        else:
+            self.key_label = NTS_TLS_Key_Label
 
         if not os.path.isdir(self.master_keys_dir):
             os.makedirs(self.master_keys_dir)
