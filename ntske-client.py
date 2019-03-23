@@ -11,13 +11,18 @@ from ntske_record import *
 from nts import *
 
 def main(argv):
-    if len(argv) != 4:
-        print("Usage: python ntske_client.py <host> <port> <ca.pem>", file=sys.stderr)
+    if len(argv) < 3:
+        print("Usage: python ntske_client.py <host> <port> [ca.pem]", file=sys.stderr)
         return 2
 
     host = argv[1]
     port = argv[2]
-    ca_pem = argv[3]
+
+    if len(sys.argv) > 3:
+        ca_pem = argv[3]
+    else:
+        print("WARNING: certificate check disabled", file = sys.stderr)
+        ca_pem = None
 
     def verify_callback(conn, cert, errno, depth, result):
         if result == 0:
@@ -33,8 +38,9 @@ def main(argv):
                     OpenSSL.SSL.OP_NO_TLSv1 |
                     OpenSSL.SSL.OP_NO_TLSv1_1)
     ctx.set_cipher_list(b"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256")
-    ctx.load_verify_locations(ca_pem)
-    ctx.set_verify(OpenSSL.SSL.VERIFY_PEER, verify_callback)
+    if ca_pem:
+        ctx.load_verify_locations(ca_pem)
+        ctx.set_verify(OpenSSL.SSL.VERIFY_PEER, verify_callback)
     ctx.set_alpn_protos([NTS_ALPN_PROTO])
 
     addrs = socket.getaddrinfo(host, int(port), socket.AF_INET, socket.SOCK_STREAM)
