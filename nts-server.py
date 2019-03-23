@@ -82,7 +82,7 @@ def main():
         except Exception:
             traceback.print_exc()
 
-        print(repr(addr), len(data), repr(data))
+        print("RECV", repr(addr), len(data), repr(data))
 
         keys = serverhelper.get_master_keys()
 
@@ -93,7 +93,7 @@ def main():
 
             resp = handle(req, master_key = keys[-1])
             buf = resp.pack()
-            print(len(buf), repr(buf))
+            print("RESP", len(buf), repr(buf))
             print(resp)
 
             sock.sendto(buf, addr)
