@@ -100,6 +100,7 @@ class NTSPacket(NTPPacket):
         nonce_len, enc_len = struct.unpack_from('>HH', field.value, 0)
         i = 4
         nonce = field.value[i : i + nonce_len]
+        # Is this correct, should we do padding here?
         i = (i + nonce_len + 3) & ~3
         # Workaround for NTPsec strangeness, the enc_len field is 16
         # bytes too small
@@ -108,7 +109,7 @@ class NTSPacket(NTPPacket):
                   file = sys.stderr)
             enc_len += 16
         ciphertext = field.value[i : i + enc_len]
-        i = (i + nonce_len + 3) & ~3
+        i = (i + enc_len + 3) & ~3
         assert i <= len(field.value)
 
         adddata = buf[:offset]
