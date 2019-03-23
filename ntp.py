@@ -128,6 +128,8 @@ class NTPPacket(object):
             reference_explanation = '%u.%u.%u.%u' % t
         if reference_explanation:
             reference_explanation = " # " + reference_explanation
+        else:
+            reference_explanation = ""
 
         a = [
             "li                  = %20u # %s" % (self.li, self.li),
