@@ -272,7 +272,7 @@ def main():
             pass
         return True
 
-    ctx = SSL.Context(SSL.SSLv23_METHOD)
+    ctx = SSL.Context(SSL.TLSv1_2_METHOD)
     ctx.set_options(SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3 |
                     SSL.OP_NO_TLSv1 | SSL.OP_NO_TLSv1_1)
     print(list(map(str, CIPHERS)))
