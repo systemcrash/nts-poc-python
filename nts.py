@@ -6,6 +6,7 @@ from ntp import *
 
 import os
 import aes_siv
+import sys
 
 """
 TODO would it be better to add flags to the NTPExtensionField indicating the status of the fields?
@@ -100,18 +101,27 @@ class NTSPacket(NTPPacket):
         i = 4
         nonce = field.value[i : i + nonce_len]
         i = (i + nonce_len + 3) & ~3
+        # Workaround for NTPsec strangeness, the enc_len field is 16
+        # bytes too small
+        if i + enc_len + 16 == len(field.value):
+            print("WARNING: enc_len %u is 16 bytes too small" % enc_len,
+                  file = sys.stderr)
+            enc_len += 16
         ciphertext = field.value[i : i + enc_len]
         i = (i + nonce_len + 3) & ~3
         assert i <= len(field.value)
+
+        adddata = buf[:offset]
 
         if 0:
             print("key   %u %s" % (len(self.unpack_key), binascii.hexlify(self.unpack_key)))
             print("nonce %u %s" % (len(nonce), binascii.hexlify(nonce)))
             print("enc   %u %s" % (len(ciphertext), binascii.hexlify(ciphertext)))
-            print("add   %u %s" % (len(buf[:offset]), binascii.hexlify(buf[:offset])))
+            print("add   %u %s" % (len(adddata), binascii.hexlify(adddata)))
 
-        plaintext = bytes(aead.decrypt(self.unpack_key, nonce, ciphertext, buf[:offset]))
+        plaintext = aead.decrypt(self.unpack_key, nonce, ciphertext, adddata)
         assert(plaintext is not None)
+        plaintext = bytes(plaintext)
 
         offset = 0
         remain = len(plaintext)

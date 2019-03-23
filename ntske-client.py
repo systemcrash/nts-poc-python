@@ -11,50 +11,74 @@ from ntske_record import *
 from nts import *
 
 def main(argv):
-    if len(argv) < 3:
-        print("Usage: python ntske_client.py <host> <port> [ca.pem]", file=sys.stderr)
-        return 2
+    argi = 1
 
-    host = argv[1]
-    port = argv[2]
+    use_ke_workaround = False
+    disable_verify = False
 
-    if len(sys.argv) > 3:
-        ca_pem = argv[3]
-    else:
-        print("WARNING: certificate check disabled", file = sys.stderr)
-        ca_pem = None
+    while argv[argi].startswith('-'):
+        opts = argv[argi][1:]
+        argi += 1
+        for o in opts:
+            if o == 'k':
+                use_ke_workaround = True
+            elif o == 'v':
+                disable_verify = True
+            else:
+                print("unknown option %s" % repr(o), file = sys.stderr)
+                sys.exit(1)
 
-    def verify_callback(conn, cert, errno, depth, result):
+    if argi + 2 != len(sys.argv):
+        print("Usage: python [-kv] ntske_client.py <host> <port>",
+              file=sys.stderr)
+        sys.exit(1)
+
+    host = argv[argi]
+    argi += 1
+    port = argv[argi]
+    argi += 1
+
+    def verify_callback(conn, cert, errno, depth, result, host = host):
+        subject = cert.get_subject()
         if result == 0:
             return False
         if depth == 0:
-            #FIXME: check hostname
-            pass
+            for k, v in cert.get_subject().get_components():
+                k = k.decode('ASCII')
+                v = v.decode('ASCII')
+                if k == 'CN':
+                    if v == host:
+                        return True
+                    else:
+                        print("hostname %s does not match CN %s in server certificate" % (repr(host), repr(v)), file = sys.stderr)
+                else:
+                    print("bad component %s %s in server certificate" % (repr(k), repr(v)))
+            return False
         return True
 
-    ctx = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv23_METHOD)
+    ctx = OpenSSL.SSL.Context(OpenSSL.SSL.TLSv1_2_METHOD)
     ctx.set_options(OpenSSL.SSL.OP_NO_SSLv2 |
                     OpenSSL.SSL.OP_NO_SSLv3 |
                     OpenSSL.SSL.OP_NO_TLSv1 |
                     OpenSSL.SSL.OP_NO_TLSv1_1)
     ctx.set_cipher_list(b"ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256")
-    if ca_pem:
-        ctx.load_verify_locations(ca_pem)
+    ctx.load_verify_locations('/etc/ssl/certs/ca-certificates.crt')
+    if not disable_verify:
         ctx.set_verify(OpenSSL.SSL.VERIFY_PEER, verify_callback)
     ctx.set_alpn_protos([NTS_ALPN_PROTO])
 
     addrs = socket.getaddrinfo(host, int(port), socket.AF_INET, socket.SOCK_STREAM)
     if len(addrs) == 0:
-        print("Host not found", file=sys.stderr)
-        return 1
+        print("connect failed", file = sys.stderr)
+        sys.exit(1)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssl = OpenSSL.SSL.Connection(ctx, sock)
     ssl.set_tlsext_host_name(host.encode("utf-8"))
     ssl.connect(addrs[0][4])
     ssl.do_handshake()
     if ssl.get_alpn_proto_negotiated() != NTS_ALPN_PROTO:
-        print("Failed to negotiate ntske/1", file=sys.stderr)
-        return 1
+        print("WARNING: failed to negotiate ALPN proto ntske/1, continuing anyway",
+              file=sys.stderr)
 
     records = []
 
@@ -94,7 +118,7 @@ def main(argv):
         if body_len > 0:
             resp += ssl.recv(body_len)
         record = Record(resp)
-        print(record.critical, record.rec_type, record.body)
+        # print(record.critical, record.rec_type, record.body)
         if record.rec_type == RT_END_OF_MESSAGE:
             break
         elif record.rec_type == RT_NEXT_PROTO_NEG:
@@ -142,8 +166,12 @@ def main(argv):
         print("No cookies provided in server response", file=sys.stderr)
         return 1
 
-    c2s_key = ssl.export_keying_material(NTS_TLS_Key_Label, NTS_TLS_Key_LEN, NTS_TLS_Key_C2S)
-    s2c_key = ssl.export_keying_material(NTS_TLS_Key_Label, NTS_TLS_Key_LEN, NTS_TLS_Key_S2C)
+    key_label = NTS_TLS_Key_Label
+    if use_ke_workaround:
+        key_label = NTS_TLS_Key_Label_Workaround
+
+    c2s_key = ssl.export_keying_material(key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_C2S)
+    s2c_key = ssl.export_keying_material(key_label, NTS_TLS_Key_LEN, NTS_TLS_Key_S2C)
 
     print("C2S: " + binascii.hexlify(c2s_key).decode('utf-8'))
     print("S2C: " + binascii.hexlify(s2c_key).decode('utf-8'))

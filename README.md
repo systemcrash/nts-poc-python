@@ -67,9 +67,9 @@ The server uses the file "server.ini" for its configuration.  The
 default is for the NTSKE server to listen on TCP port 4123.
 
 Run the NTSKE client to talk to the NTSKE server and save the results
-to the file "client.ini".
+to the file "client.ini" and not perform certicate verification (-v).
 
- python3 ntske-client.py localhost 4446 rootCaBundle.pem
+ python3 ntske-client.py -v localhost 4446
 
 Run the NTS client to talk to the NTS server and get a timestamped
 packet back.

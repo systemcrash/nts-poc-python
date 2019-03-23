@@ -93,12 +93,13 @@ KissCodes = {
 NTS_ALPN_PROTO = b'ntske/1'
 
 NTS_TLS_Key_Label = b'EXPORTER-network-time-security/1'
+NTS_TLS_Key_Label_Workaround = b'EXPORTER-nts/1'
 if 0:
     # A bug in OpenSSL 1.1.1 stops it from handling long export labels
     # https://mailarchive.ietf.org/arch/msg/ntp/nkc-9n6XOPt5Glgi_ueLvuD9EfY
     # Work around this by using a shorter string for the moment.
     # Note that this change must be made in both server and client.
-    NTS_TLS_Key_Label = b'EXPORTER-nts/1'
+    NTS_TLS_Key_Label = NTS_TLS_Key_Label_Workaround
 
 NTS_TLS_Key_LEN = 32
 NTS_TLS_Key_C2S = b'\0\0\0\x0f\x00'
