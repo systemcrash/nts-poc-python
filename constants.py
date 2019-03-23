@@ -93,7 +93,7 @@ KissCodes = {
 NTS_ALPN_PROTO = b'ntske/1'
 
 NTS_TLS_Key_Label = b'EXPORTER-network-time-security/1'
-if 1:
+if 0:
     # A bug in OpenSSL 1.1.1 stops it from handling long export labels
     # https://mailarchive.ietf.org/arch/msg/ntp/nkc-9n6XOPt5Glgi_ueLvuD9EfY
     # Work around this by using a shorter string for the moment.
