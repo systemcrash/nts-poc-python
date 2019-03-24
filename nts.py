@@ -109,10 +109,11 @@ class NTSPacket(NTPPacket):
         adddata = buf[:offset]
 
         if 0:
+            print("field %u %s" % (len(field.value), binascii.hexlify(field.value[:16])))
             print("key   %u %s" % (len(self.unpack_key), binascii.hexlify(self.unpack_key)))
             print("nonce %u %s" % (len(nonce), binascii.hexlify(nonce)))
             print("enc   %u %s" % (len(ciphertext), binascii.hexlify(ciphertext)))
-            print("add   %u %s" % (len(adddata), binascii.hexlify(adddata)))
+            print("add   %u %s" % (len(adddata), binascii.hexlify(adddata[:10])))
 
         plaintext = aead.decrypt(self.unpack_key, nonce, ciphertext, adddata)
         assert(plaintext is not None)

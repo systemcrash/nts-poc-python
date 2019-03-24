@@ -231,7 +231,7 @@ def handle(server, ssl, addr, keyid, key):
     while True:
         resp = ssl.recv(4)
         if(len(resp) < 4):
-            print("Premature end of server response", file=sys.stderr)
+            print("Premature end of server response", file = sys.stderr)
             return 1
         body_len = struct.unpack(">H", resp[2:4])[0]
         if body_len > 0:
