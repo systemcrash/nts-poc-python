@@ -99,8 +99,10 @@ class NTSPacket(NTPPacket):
 
         nonce_len, enc_len = struct.unpack_from('>HH', field.value, 0)
         i = 4
+        assert nonce_len >= 16
+        # We ought to check if the AEAD algorithm has any more
+        # requirements on the length of the nonce
         nonce = field.value[i : i + nonce_len]
-        # Is this correct, should we do padding here?
         i = (i + nonce_len + 3) & ~3
         ciphertext = field.value[i : i + enc_len]
         i = (i + enc_len + 3) & ~3
