@@ -20,7 +20,7 @@ def handle(req, master_key):
 
     resp = NTSServerPacket(
         mode = Mode.SERVER,
-        stratum = 15,
+        stratum = 5,
         reference_id = b'\0\0\0\0',
         precision = -10,
         reference_timestamp = ts,
