@@ -301,17 +301,18 @@ def main():
             break
         except Exception:
             traceback.print_exc()
+            continue
 
         keyid, key = serverhelper.get_master_key()
 
         try:
             handle(server, ssl, addr, keyid, key)
+            ssl.shutdown()
         except KeyboardInterrupt:
             break
         except Exception:
             traceback.print_exc()
         finally:
-            ssl.shutdown()
             ssl.close()
 
     print()
