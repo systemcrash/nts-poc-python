@@ -38,6 +38,7 @@ try:
             self.ctx.load_cert_chain(cert, key)
 
         def connect(self, sock, hostname):
+            sock.settimeout(1)
             s = self.ctx.wrap_socket(sock,
                                      server_hostname = hostname,
                                      suppress_ragged_eofs = False)
