@@ -9,6 +9,7 @@ import struct
 import traceback
 from socketserver import ThreadingTCPServer, TCPServer, BaseRequestHandler
 
+from pooling import ThreadPoolTCPServer
 from sslwrapper import SSLWrapper
 from constants import *
 from ntske_record import *
@@ -42,7 +43,7 @@ def pack_array(a):
 
 class NTSKEHandler(BaseRequestHandler):
     def handle(self):
-        print("Handle", self.client_address)
+        print("Handle", self.client_address, "in child", os.getpid())
 
         self.keyid, self.key = self.server.helper.get_master_key()
         s = self.server.wrapper.accept(self.request)
@@ -234,7 +235,10 @@ class NTSKEHandler(BaseRequestHandler):
 
         return records
 
-class NTSKEServer(ThreadingTCPServer):
+ChosenTCPServer = ThreadingTCPServer
+ChosenTCPServer = ThreadPoolTCPServer
+
+class NTSKEServer(ChosenTCPServer):
     allow_reuse_address = True
 
     def __init__(self, config_path):
@@ -266,7 +270,39 @@ def main():
         config_path = sys.argv[1]
 
     server = NTSKEServer(config_path)
-    server.serve_forever()
+
+    pids = []
+
+    if 1:
+        for i in range(3):
+            pid = os.fork()
+            if pid == 0:
+                print("child process", os.getpid())
+                try:
+                    try:
+                        server.serve_forever()
+                    except KeyboardInterrupt:
+                        print("keyboardinterrupt in child", os.getpid(), "...")
+                        pass
+                    print("child", os.getpid(), "stopping...")
+                    server.server_close()
+                finally:
+                    sys.exit(0)
+            else:
+                pids.append(pid)
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("keyboardinterrupt")
+
+    print("shutting down...")
+
+    server.server_close()
+
+    for pid in pids:
+        p, status = os.wait()
+        print("child", p, "has stopped")
 
 if __name__ == "__main__":
     main()
