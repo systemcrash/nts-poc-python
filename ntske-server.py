@@ -241,10 +241,12 @@ ChosenTCPServer = ThreadPoolTCPServer
 class NTSKEServer(ChosenTCPServer):
     allow_reuse_address = True
 
+    address_family = socket.AF_INET6
+
     def __init__(self, config_path):
         self.helper = ServerHelper(config_path)
 
-        host = '0.0.0.0'
+        host = ''
         port = int(self.helper.ntske_port)
 
         super(NTSKEServer, self).__init__((host, port), NTSKEHandler)

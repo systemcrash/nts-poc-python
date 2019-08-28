@@ -61,8 +61,7 @@ def main(argv):
     wrapper.client(ca, disable_verify)
     wrapper.set_alpn_protocols([NTS_ALPN_PROTO])
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((host, port))
+    sock = socket.create_connection((host, port))
 
     s = wrapper.connect(sock, verify_host)
 
