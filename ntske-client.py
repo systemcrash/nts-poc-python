@@ -23,6 +23,8 @@ def main(argv):
     ca = None
     verify_host = None
     strict = False
+    ipv4_only = False
+    ipv6_only = False
 
     while argv[argi].startswith('-'):
         opts = argv[argi][1:]
@@ -40,12 +42,21 @@ def main(argv):
                 argi += 1
             elif o == 's':
                 strict = True
+            elif o == '4':
+                ipv4_only = True
+            elif o == '6':
+                ipv6_only = True
             else:
                 print("unknown option %s" % repr(o), file = sys.stderr)
                 sys.exit(1)
 
     if argi + 2 != len(sys.argv):
         print("Usage: python [-kv] ntske_client.py <host> <port>",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if ipv4_only and ipv6_only:
+        print("Error: both -4 and -6 specified, use only one",
               file=sys.stderr)
         sys.exit(1)
 
@@ -61,7 +72,14 @@ def main(argv):
     wrapper.client(ca, disable_verify)
     wrapper.set_alpn_protocols([NTS_ALPN_PROTO])
 
-    sock = socket.create_connection((host, port))
+    if ipv4_only:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
+    elif ipv6_only:
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.connect((host, port))
+    else:
+        sock = socket.create_connection((host, port))
 
     s = wrapper.connect(sock, verify_host)
 
