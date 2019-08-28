@@ -20,7 +20,7 @@ def main(argv):
 
     use_ke_workaround = False
     disable_verify = False
-    ca = '/etc/ssl/certs/ca-certificates.crt'
+    ca = None
     verify_host = None
     strict = False
 

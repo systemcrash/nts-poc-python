@@ -3,6 +3,18 @@ from __future__ import division, print_function, unicode_literals
 
 import socket
 import sys
+import os
+
+def _default_verify_locations():
+    for ca in [
+        # Ubuntu: apt-get install ca-certificates
+        '/etc/ssl/certs/ca-certificates.crt',
+        # CentOS: yum install ca-certificates
+        '/etc/pki/tls/cert.pem',
+    ]:
+        if os.path.exists(ca):
+            return ca
+    return None
 
 class SSLWrapperException(Exception):
     pass
@@ -109,8 +121,11 @@ try:
             self._common()
 
             if ca is None:
-                ca = '/etc/ssl/certs/ca-certificates.crt'
-            self.ctx.load_verify_locations(ca)
+                ca = _default_verify_locations()
+            if ca is not None:
+                print("warning could not find root CA file")
+            else:
+                self.ctx.load_verify_locations(ca)
 
             if not disable_verify:
                 self.ctx.set_verify(OpenSSL.SSL.VERIFY_PEER, self._verify_callback)
