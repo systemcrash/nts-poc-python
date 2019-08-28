@@ -14,14 +14,14 @@ from util import epoch_to_ntp_ts
 from server_helper import ServerHelper
 from constants import *
 from ntp import NTPExtensionField,  NTPExtensionFieldType
-from nts import NTSServerPacket, NTSCookie
+from nts import NTSServerPacketHelper, NTSCookie
 
 assert sys.version_info[0] == 3
 
 def handle(req, master_key):
     ts = epoch_to_ntp_ts(time.time())
 
-    resp = NTSServerPacket(
+    resp = NTSServerPacketHelper(
         mode = Mode.SERVER,
         stratum = 5,
         reference_id = b'\0\0\0\0',
@@ -94,7 +94,7 @@ def main():
         keys = serverhelper.get_master_keys()
 
         try:
-            req = NTSServerPacket.unpack(data, keys = dict(keys))
+            req = NTSServerPacketHelper.unpack(data, keys = dict(keys))
             print(req)
             print()
 
