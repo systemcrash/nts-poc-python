@@ -11,12 +11,15 @@ def unhexlify(s):
 def hexlify(d):
     return ' '.join([ binascii.hexlify(d[i:i+4]) for i in range(0, len(d), 4) ])
 
+# Test data from A.2 in https://tools.ietf.org/html/rfc5297
+# with the change that ad2 is dropped.
 
-key = unhexlify('''fffefdfc fbfaf9f8 f7f6f5f4 f3f2f1f0
-               f0f1f2f3 f4f5f6f7 f8f9fafb fcfdfeff''')
+key = unhexlify('''7f7e7d7c 7b7a7978 77767574 73727170
+                   40414243 44454647 48494a4b 4c4d4e4f''')
 
-ad = unhexlify('''10111213 14151617 18191a1b 1c1d1e1f
-              20212223 24252627''')
+ad = unhexlify('''00112233 44556677 8899aabb ccddeeff
+                  deaddada deaddada ffeeddcc bbaa9988
+                  77665544 33221100''')
 
 nonce = unhexlify('''09f91102 9d74e35b d84156c5 635688c0''')
 
@@ -26,6 +29,13 @@ plaintext = unhexlify('''74686973 20697320 736f6d65 20706c61
 
 aead = aes_siv.AES_SIV()
 
+print("Key:  ", hexlify(key))
+print("AD:   ", hexlify(ad))
+print("Nonce:", hexlify(nonce))
+print("Plain:", hexlify(plaintext))
+print()
+
 ciphertext = aead.encrypt(key, nonce, plaintext, ad)
 
-print(hexlify(ciphertext))
+print()
+print("Out:   ", hexlify(ciphertext))
