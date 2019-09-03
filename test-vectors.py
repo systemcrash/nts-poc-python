@@ -14,16 +14,16 @@ def hexlify(d):
 def test():
     aead = aes_siv.AES_SIV()
 
-    print("Key:  ", hexlify(key))
-    print("AD:   ", hexlify(ad))
-    print("Nonce:", hexlify(nonce))
-    print("Plain:", hexlify(plaintext))
+    print("Key:  ", hexlify(key), "(%d bytes)" % len(key))
+    print("AD:   ", hexlify(ad), "(%d bytes)" % len(ad))
+    print("Nonce:", hexlify(nonce), "(%d bytes)" % len(nonce))
+    print("Plain:", hexlify(plaintext), "(%d bytes)" % len(plaintext))
     print()
 
     ciphertext = aead.encrypt(key, nonce, plaintext, ad)
 
     print()
-    print("Out:   ", hexlify(ciphertext))
+    print("Out:   ", hexlify(ciphertext), "(%d bytes)" % len(ciphertext))
     print()
 
 print("Test data based on A.2 in https://tools.ietf.org/html/rfc5297")
