@@ -1,7 +1,9 @@
 *~
 *.pyc
 *.pyo
+.tmp*
 lextab.py
 yacctab.py
 client.ini
 master_keys
+certs/

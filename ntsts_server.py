@@ -18,7 +18,7 @@ from nts import NTSServerPacketHelper, NTSCookie
 
 assert sys.version_info[0] == 3
 
-def handle(req, master_key):
+def handle(req, server_key):
     ts = epoch_to_ntp_ts(time.time())
 
     resp = NTSServerPacketHelper(
@@ -44,7 +44,7 @@ def handle(req, master_key):
         resp.pack_key = req.pack_key
         resp.enc_ext = []
 
-        keyid, key = master_key
+        keyid, key = server_key
 
         if req.nr_cookie_placeholders > 7:
             raise ValueError("too many cookie placeholders")
@@ -62,6 +62,7 @@ def handle(req, master_key):
 
 def main():
     serverhelper = ServerHelper()
+    serverhelper.refresh_server_keys()
 
     if serverhelper.ntpv4_server:
         host = serverhelper.ntpv4_server.strip()
@@ -72,6 +73,9 @@ def main():
         port = int(serverhelper.ntpv4_port)
     else:
         port = NTPV4_DEFAULT_PORT
+
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((host, port))
@@ -91,14 +95,14 @@ def main():
 
         print("RECV", repr(addr), len(data), repr(data[:10]))
 
-        keys = serverhelper.get_master_keys()
+        keys = serverhelper.get_server_keys()
 
         try:
             req = NTSServerPacketHelper.unpack(data, keys = dict(keys))
             print(req)
             print()
 
-            resp = handle(req, master_key = keys[-1])
+            resp = handle(req, server_key = keys[-1])
             buf = resp.pack()
             print("RESP", repr(addr), len(buf), repr(buf[:10]))
             print(resp)
@@ -108,6 +112,7 @@ def main():
             break
         except Exception:
             traceback.print_exc()
+            open("dump/dump-%s-%.3f.bin" % (addr[0], time.time()), 'wb').write(data)
 
         print()
 

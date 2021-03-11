@@ -9,30 +9,39 @@ import binascii
 from constants import *
 from util import *
 
+class FieldExtendsPastBufferError(ValueError):
+    pass
+
 class NTPExtensionField(object):
     def __init__(self, field_type, value):
         assert field_type >= 0 and field_type <= 65535
         self.field_type = field_type
         self.value = value
+        self.force_size = None
 
     @staticmethod
     def peek(buf, offset = 0):
         field_type, field_len = struct.unpack_from('>HH', buf, offset)
         if field_len % 4 != 0:
-            raise ValueError("field length is not a multiple of 4")
+            raise ValueError("field length %u is not a multiple of 4" % (field_len))
         if offset + field_len > len(buf):
-            raise ValueError("field extends past end of buffer")
+            raise FieldExtendsPastBufferError("field length %u extends past size of buffer %u" % (field_len, len(buf) - offset))
         return field_type, field_len
 
     def pack(self, last = False):
-        field_len = 4 + len(self.value)  # Header and value
-        field_len = (field_len + 3) & ~3   # Round length up to word
-        if last:           # Enforce minimum extension field size
-            # the last extension field MUST be >28 octets including header
-            field_len = max(field_len, 28)
+        if self.force_size is True:
+            field_len = 4 + len(self.value)
+        elif self.force_size:
+            field_len = self.force_size
         else:
-            # other extension fields MUST be >16 octets including header
-            field_len = max(field_len, 16)
+            field_len = 4 + len(self.value)  # Header and value
+            field_len = (field_len + 3) & ~3   # Round length up to word
+            if last:           # Enforce minimum extension field size
+                # the last extension field MUST be >28 octets including header
+                field_len = max(field_len, 28)
+            else:
+                # other extension fields MUST be >16 octets including header
+                field_len = max(field_len, 16)
 
         padding = bytes(bytearray(field_len - len(self.value) - 4))
 
@@ -86,6 +95,8 @@ class NTPPacket(object):
             self.ext = []
         self.keyid = keyid
         self.mac = mac
+
+        self.debug = 0
 
     def pack(self):
         flags = ((self.li << 6) |
@@ -168,8 +179,8 @@ class NTPPacket(object):
                     t = NTPExtensionFieldType(ext.field_type)
                 except ValueError:
                     t = '0x%04x' % ext.field_type
-                a.append("  NTPExtensionField(%s, binhex.unhexlify(\"%s\"))," % (
-                        t, binascii.hexlify(ext.value)))
+                a.append("  NTPExtensionField(%s, unhexlify('''%s'''))," % (
+                        t, hexlify(ext.value[:10])))
             a.append("                      ]")
 
         if hasattr(self, 'enc_ext') and self.enc_ext is not None:
@@ -179,13 +190,13 @@ class NTPPacket(object):
                     t = NTPExtensionFieldType(ext.field_type)
                 except ValueError:
                     t = '0x%04x' % ext.field_type
-                a.append("  NTPExtensionField(%s, binhex.unhexlify(\"%s\"))," % (
-                        t, binascii.hexlify(ext.value)))
+                a.append("  NTPExtensionField(%s, unhexlify('''%s'''))," % (
+                        t, hexlify(ext.value)))
             a.append("                      ]")
 
         if self.keyid is not None:
             a.append("keyid               = %08x" % self.keyid)
-            a.append("mac                 = %s" % self.mac.encode('hex'))
+            a.append("mac                 = %s" % binascii.hexlify(self.mac))
 
         return '\n'.join(a)
 
@@ -252,7 +263,6 @@ class NTPPacket(object):
 
             if len(packet.mac) == 0:
                 print("Crypto NAK %08x" % packet.keyid)
-                print(repr(packet.keyid))
                 assert packet.keyid == 0
 
             offset += remain
