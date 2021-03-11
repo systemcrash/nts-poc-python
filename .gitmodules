@@ -1,0 +1,4 @@
+[submodule "libaes_siv"]
+	path = libaes_siv
+	url = ../libaes_siv.git
+	branch = for-nts-poc-python
