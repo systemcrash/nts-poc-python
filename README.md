@@ -19,12 +19,37 @@ Install the following packages:
 
  apt-get install git gcc binutils cmake libssl-dev python3-cffi
 
+Custom Python
+-------------
+
+The NTS server and client need a modified version of Python 3 to work.
+The reason for this is that the NTS protocol uses the key exporter
+functions of OpenSSL and those are not supported in the stock OpenSSL
+wrapper in Python 3.
+
+Install some pacages needed to build Python 3:
+
+ apt-get install git build-essential cmake pkg-config libssl-dev libffi-dev libz-dev wget
+
+Clone the modified Python 3 repository:
+
+ git clone -b export_keying_material-3.7.4 https://github.com/Netnod/cpython.git
+
+ cd cpython
+ LDFLAGS=-Wl,-rpath,$PREFIX/lib ./configure --prefix=/opt/python-nts
+ make -j`nproc`
+ make install
+ mkdir -p /opt/python-nts/ssl
+ ln -sf /etc/ssl/ca-certificates.crt /opt/python-nts/ssl/cert.pem
+ ln -sf /etc/ssl/certs /opt/python-nts/ssl/certs
+ /opt/python-nts/bin/python3 -m pip install cffi
+
 Checking out
 ============
 
 Clone the repository:
 
- git clone https://github.com/Netnod/nts-poc-python.git
+ git clone --recursive https://github.com/Netnod/nts-poc-python.git
 
 Testing the Python implementation
 =================================
@@ -40,17 +65,11 @@ return corrupt data with some NTS servers.
 Change directory to the top of the nts-poc-python tree:
 
  cd nts-poc-python
-
-Check out Daniel Fox Franke's libaes_siv implementation and build it:
-
- git clone https://github.com/dfoxfranke/libaes_siv.git
- cd libaes_siv
- cmake .
- make
+ ./build.sh
 
 To start the NTSKE server, open a terminal and run:
 
- python3 ntske-server.py
+ python3 ntske_server.py
 
 The server uses server.ini for its configuration.  The default is for
 the NTSKE server to listen on TCP port 4446.  The master keys are
@@ -59,7 +78,7 @@ NTSKE server will create a new master key.
 
 To start the NTP/UDP server, open a terminal and run:
 
- python3 nts-server.py
+ /opt/python-nts/bin/python3 ntsts_server.py
 
 The server uses the file "server.ini" for its configuration.  The
 default is for the NTSKE server to listen on TCP port 4123.
@@ -67,109 +86,21 @@ default is for the NTSKE server to listen on TCP port 4123.
 Run the NTSKE client to talk to the NTSKE server and save the results
 to the file "client.ini" and not perform certicate verification (-v).
 
- python3 ntske-client.py -v localhost 4446
+ /opt/python-nts/bin/python3 ntske_client.py -v localhost 4446
 
 Run the NTS client to talk to the NTS server and get a timestamped
 packet back.
 
- python3 nts-client.py
+ /opt/python-nts/bin/python3 ntsts_client.py
 
 If you want to talk to a different NTS server than the one specified
 in client.ini you can specify the NTS server on the command line:
 
- python nts-client.py host port
+ python ntsts_client.py host port
 
 If you want to rotate the master key, run server_helper.py:
 
- python3 server_helper.py
+ /opt/python-nts/bin/python3 server_helper.py
 
 This will create a new key in the server_keys directory which will be
 read by ntske-server.py or nts-server.py on the next request.
-
-Testing with Martin Langer's NTS implementation
-===============================================
-
-As a hack to test compatibility, I've modified Martin's NTSKE server
-so that it saves the master keys it is using to disk in the same
-format as the python NTSKE implementation does.  The Python
-implementation uses the same cookie format as Martin's implementation,
-that is, the one recommended in the NTS draft with a 16 byte nonce.
-
-Prerequsites
-------------
-
-First of all, Martin Langer's NTS implementation requires more recent
-versions of cmake, openssl and boost than are available on Ubuntu
-18.04, so you will have to build them yourself.
-
-Download and build cmake-3.13.3 and install it under /opt:
-
- wget https://github.com/Kitware/CMake/releases/download/v3.13.3/cmake-3.13.3.tar.gz
- tar xvfz cmake-3.13.3.tar.gz
- cd cmake-3.13.3
- ./bootstrap --prefix=/opt/cmake-3.13.3
- make -j8
- make install
- cd ..
-
-Download and build openssl-1.1.1a and install it under /opt:
-
- wget https://www.openssl.org/source/openssl-1.1.1a.tar.gz
- tar xvfz openssl-1.1.1a.tar.gz
- ./config --prefix=/opt/openssl-1.1.1a
- make -j8
- make install
- cd ..
-
-Download and build boost-1.69 and install it under /opt:
-
- wget https://dl.bintray.com/boostorg/release/1.69.0/source/boost_1_69_0.tar.gz
- tar xvfz boost_1_69_0.tar.gz
- cd boost_1_69_0
- ./bootstrap.sh --prefix=/opt/boost-1.69
- ./b2 install -j8
- cd ..
-
-Building Martin Langer's NTS
-----------------------------
-
-Clone the modified version of the ntp project:
-
- git clone --recursive https://gitlab.com/wingel/ntp.git
-
-Build the modified version of the ntp project:
-
- cd ntp
- mkdir -p build
- cd build
- /opt/cmake-3.13.3/bin/cmake -DBOOST_ROOT=/opt/boost-1.69 -DOPENSSL_ROOT_DIR=/opt/openssl-1.1.1a ../src
- make
-
-Running Martin Langer's NTS
----------------------------
-
-To test this, open a terminal, clear out the server_keys generated by
-the Python implementaton and then run Martin's implementation:
-
- rm -rf server_keys; ./ntp/build/ntp
-
-Martin's implementation will use the configuration in the "config"
-directory which is right now set to use TCP port 4443 for NTSKE and
-UDP port 4123 for NTS.
-
-To ask for cookies from Martin's NTSKE server, run:
-
- python3 ntske-client.py localhost 4443 rootCaBundle.pem
-
-since Martin's implementation does not send a NTPv4 Port Negotiation
-record, port 123 will be stored in "client.ini", so to talk to
-Martin's NTPv4 server, run the following command:
-
- ./nts-client.py localhost 4123
-
-if you are running nts-server.py, you can talk to it using:
-
- ./nts-client.py localhost 4126
-
-You can also talk to the Python NTSKE server as described above and
-those cookies will also work with with both server implementations.
