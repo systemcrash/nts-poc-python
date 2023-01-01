@@ -5,5 +5,5 @@
 lextab.py
 yacctab.py
 client.ini
-master_keys
+*_keys
 certs/
