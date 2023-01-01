@@ -34,7 +34,7 @@ def main():
                 sys.exit(1)
 
     if len(sys.argv) not in [ argi, argi + 2 ]:
-        print("Usage: python [-46] ntp-client.py <host> <port>",
+        print("Usage: python [-46] %s <host> <port>" % sys.argv[0], 
               file=sys.stderr)
         sys.exit(1)
 

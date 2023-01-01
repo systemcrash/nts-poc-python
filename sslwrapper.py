@@ -11,6 +11,8 @@ def _default_verify_locations():
         '/etc/ssl/certs/ca-certificates.crt',
         # CentOS: yum install ca-certificates
         '/etc/pki/tls/cert.pem',
+        # macOS
+        '/etc/ssl/cert.pem',
     ]:
         if os.path.exists(ca):
             return ca
@@ -107,6 +109,7 @@ try:
             return { 'tls_version' : cipher[1], 'cipher' : cipher[0] }
 
 except AttributeError:
+    print('Notice: couldnt import ssl, trying pyOpenssl')
     pass
 
 try:
@@ -160,6 +163,9 @@ try:
             s = OpenSSL.SSL.Connection(self.ctx, sock)
             s.set_accept_state()
             return PyOpenSSLSocket(s)
+
+        def enable_tlsv1_2(self):
+            pass
 
         def set_alpn_protocols(self, protocols):
             self.alpn_protocols = [ p.encode('ASCII') for p in protocols ]
@@ -226,6 +232,7 @@ try:
             return {}
 
 except ImportError:
+    print('Notice: couldnt import pyOpenssl')
     pass
 
 except AttributeError:

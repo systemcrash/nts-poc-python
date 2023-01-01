@@ -10,8 +10,6 @@ import rfc7822
 import binascii
 import random
 
-import aes_siv
-
 from ntp import NTPPacket, NTPExtensionField,  NTPExtensionFieldType
 import ntp
 from nts import NTSClientPacketHelper, NTSCookie
@@ -312,7 +310,7 @@ def main():
     random.seed()
 
     if len(sys.argv) not in [ argi, argi + 2 ]:
-        print("Usage: python [-46] nts-client.py <host> <port>",
+        print("Usage: python [-46] %s <host> <port>" % sys.argv[0], 
               file=sys.stderr)
         sys.exit(1)
 

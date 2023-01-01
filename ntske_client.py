@@ -240,7 +240,7 @@ def main(argv):
                 sys.exit(1)
 
     if argi + 2 != len(sys.argv):
-        print("Usage: python [-kv] ntske_client.py <host> <port>",
+        print("Usage: python [-kv] %s <host> <port>" % sys.argv[0],
               file = sys.stderr)
         sys.exit(1)
 
